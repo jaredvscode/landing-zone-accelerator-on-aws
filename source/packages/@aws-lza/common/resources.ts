@@ -11,6 +11,9 @@
  *  and limitations under the License.
  */
 
+import { ListDelegatedAdministratorsCommand, OrganizationsClient } from '@aws-sdk/client-organizations';
+import { throttlingBackOff } from './throttle';
+
 /**
  * Accelerator solution supported module names
  */
@@ -274,3 +277,36 @@ export type PolicyDocument = {
   Id?: string;
   Statement: PolicyStatementType[];
 };
+
+/**
+ * Retrieve registered Organization delegated admin account ids.
+ *
+ * @param client OrganizationsClient
+ * @param servicePrincipal string
+ * @returns delegatedAccountId string | undefined
+ */
+export async function getOrganizationDelegatedAdminAccountId(
+  client: OrganizationsClient,
+  servicePrincipal: string,
+): Promise<string | undefined> {
+  const response = await throttlingBackOff(() =>
+    client.send(
+      new ListDelegatedAdministratorsCommand({
+        ServicePrincipal: servicePrincipal,
+      }),
+    ),
+  );
+
+  const currentAdmins =
+    response.DelegatedAdministrators?.map(admin => admin.Id).filter((id): id is string => !!id) ?? [];
+
+  if (currentAdmins.length === 0) {
+    return undefined;
+  } else if (currentAdmins.length > 1) {
+    throw new Error(
+      `Internal Error: Only 1 delegation admin should be set for ${servicePrincipal}, ${currentAdmins.length} received from the API.`,
+    );
+  } else {
+    return currentAdmins[0];
+  }
+}

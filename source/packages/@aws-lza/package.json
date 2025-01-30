@@ -31,6 +31,7 @@
     "@aws-sdk/client-kms": "3.637.0",
     "@aws-sdk/client-ssm": "3.637.0",
     "@aws-sdk/client-organizations": "3.638.0",
+    "@aws-sdk/client-securitylake": "3.726.1",
     "@aws-sdk/client-sts": "3.637.0",
     "@aws-sdk/util-retry": "3.374.0",
     "fs-extra": "11.1.0",
