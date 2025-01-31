@@ -351,6 +351,26 @@ export class SecurityStack extends AcceleratorStack {
           },
         }),
       );
+
+      // Deny users outside of LZA the ability to disable and delete the CMK key
+      ebsEncryptionKey.addToResourcePolicy(
+        new iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${this.partition}:iam::${this.account}:role/AWSControlTowerExecution`,
+                `arn:${this.partition}:iam::${this.account}:role/${this.props.prefixes.accelerator}-*`,
+                `arn:${this.partition}:iam::${this.account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
       if (this.props.partition === 'aws') {
         ebsEncryptionKey.addToResourcePolicy(
           new iam.PolicyStatement({

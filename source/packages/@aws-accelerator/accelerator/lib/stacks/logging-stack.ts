@@ -594,6 +594,28 @@ export class LoggingStack extends AcceleratorStack {
         }),
       );
 
+      // Deny users outside of LZA the ability to disable and delete the CMK key
+      cloudwatchKey.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                  this.props.prefixes.accelerator
+                }-*`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
+
       this.ssmParameters.push({
         logicalId: 'AcceleratorCloudWatchKmsArnParameter',
         parameterName: this.acceleratorResourceNames.parameters.cloudWatchLogCmkArn,
@@ -634,6 +656,28 @@ export class LoggingStack extends AcceleratorStack {
         enableKeyRotation: true,
         removalPolicy: cdk.RemovalPolicy.RETAIN,
       });
+
+      // Deny users outside of LZA the ability to disable and delete the CMK key
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                  this.props.prefixes.accelerator
+                }-*`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
 
       this.ssmParameters.push({
         logicalId: 'AcceleratorLambdaKmsArnParameter',
@@ -768,25 +812,35 @@ export class LoggingStack extends AcceleratorStack {
       }),
     );
 
-    s3Key.addToResourcePolicy(
-      new cdk.aws_iam.PolicyStatement({
-        sid: 'Allow AWS Services to encrypt and describe logs',
-        actions: [
-          'kms:Decrypt',
-          'kms:DescribeKey',
-          'kms:Encrypt',
-          'kms:GenerateDataKey',
-          'kms:GenerateDataKeyPair',
-          'kms:GenerateDataKeyPairWithoutPlaintext',
-          'kms:GenerateDataKeyWithoutPlaintext',
-          'kms:ReEncryptFrom',
-          'kms:ReEncryptTo',
-        ],
-        principals: [new cdk.aws_iam.ServicePrincipal(`delivery.logs.amazonaws.com`)],
-        resources: ['*'],
-      }),
-    );
-    return s3Key;
+      s3Key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'Allow AWS Services to encrypt and describe logs',
+          actions: [
+            'kms:Decrypt',
+            'kms:DescribeKey',
+            'kms:Encrypt',
+            'kms:GenerateDataKey',
+            'kms:GenerateDataKeyPair',
+            'kms:GenerateDataKeyPairWithoutPlaintext',
+            'kms:GenerateDataKeyWithoutPlaintext',
+            'kms:ReEncryptFrom',
+            'kms:ReEncryptTo',
+          ],
+          principals: [new cdk.aws_iam.ServicePrincipal(`delivery.logs.amazonaws.com`)],
+          resources: ['*'],
+        }),
+      );
+
+      this.ssmParameters.push({
+        logicalId: 'AcceleratorS3KmsArnParameter',
+        parameterName: this.acceleratorResourceNames.parameters.s3CmkArn,
+        stringValue: s3Key.keyArn,
+      });
+
+      return s3Key;
+    } else {
+      return this.createAuditAccountS3Key();
+    }
   }
 
   /**
@@ -872,6 +926,28 @@ export class LoggingStack extends AcceleratorStack {
         }),
       );
     });
+
+    // Deny users outside of LZA the ability to disable and delete the CMK key
+    s3Key.addToResourcePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        sid: 'DenyKeyDeletionExceptAccelerator',
+        effect: cdk.aws_iam.Effect.DENY,
+        principals: [new cdk.aws_iam.AnyPrincipal()],
+        actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+        resources: ['*'],
+        conditions: {
+          StringNotLike: {
+            'aws:PrincipalARN': [
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                this.props.prefixes.accelerator
+              }-*`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+            ],
+          },
+        },
+      }),
+    );
 
     this.ssmParameters.push({
       logicalId: 'AcceleratorS3KmsArnParameter',
@@ -995,6 +1071,28 @@ export class LoggingStack extends AcceleratorStack {
       // it can be destroyed as encrypts service
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+
+    // Deny users outside of LZA the ability to disable and delete the CMK key
+    logsReplicationKmsKey.addToResourcePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        sid: 'DenyKeyDeletionExceptAccelerator',
+        effect: cdk.aws_iam.Effect.DENY,
+        principals: [new cdk.aws_iam.AnyPrincipal()],
+        actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+        resources: ['*'],
+        conditions: {
+          StringNotLike: {
+            'aws:PrincipalARN': [
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                this.props.prefixes.accelerator
+              }-*`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+            ],
+          },
+        },
+      }),
+    );
 
     // // Create Kinesis Data Stream
     // Kinesis Stream - data stream which will get data from CloudWatch logs
@@ -1380,6 +1478,30 @@ export class LoggingStack extends AcceleratorStack {
                 'kms:EncryptionContext:SecretARN': `arn:${cdk.Stack.of(this).partition}:secretsmanager:${
                   cdk.Stack.of(this).region
                 }:${madAdminSecretAccountId}:secret:${this.props.prefixes.secretName}/ad-user/*`,
+              },
+            },
+          }),
+        );
+
+        // Deny users outside of LZA the ability to disable and delete the CMK key
+        key.addToResourcePolicy(
+          new cdk.aws_iam.PolicyStatement({
+            sid: 'DenyKeyDeletionExceptAccelerator',
+            effect: cdk.aws_iam.Effect.DENY,
+            principals: [new cdk.aws_iam.AnyPrincipal()],
+            actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+            resources: ['*'],
+            conditions: {
+              StringNotLike: {
+                'aws:PrincipalARN': [
+                  `arn:${cdk.Stack.of(this).partition}:iam::${
+                    cdk.Stack.of(this).account
+                  }:role/AWSControlTowerExecution`,
+                  `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                    this.props.prefixes.accelerator
+                  }-*`,
+                  `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+                ],
               },
             },
           }),
@@ -1808,7 +1930,47 @@ export class LoggingStack extends AcceleratorStack {
         alias: this.acceleratorResourceNames.customerManagedKeys.importedAssetBucket.alias,
         description: this.acceleratorResourceNames.customerManagedKeys.importedAssetBucket.description,
       });
-      key.addToResourcePolicy(this.createImportBucketKeyPolicyStatement());
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: `Allow Accelerator and Assets Role to use the encryption key`,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              ...this.getPrincipalOrgIdCondition(this.organizationId),
+            },
+            ArnLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this).partition}:iam::*:role/${this.props.prefixes.accelerator}-AssetsAccessRole`,
+              ],
+            },
+          },
+        }),
+      );
+
+      // Deny users outside of LZA the ability to disable and delete the CMK key
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                  this.props.prefixes.accelerator
+                }-*`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
+
       new cdk.aws_ssm.StringParameter(this, 'AcceleratorImportedAssetsBucketKmsArnParameter', {
         parameterName: this.acceleratorResourceNames.parameters.importedAssetsBucketCmkArn,
         stringValue: key.keyArn,
@@ -1820,34 +1982,54 @@ export class LoggingStack extends AcceleratorStack {
         alias: this.acceleratorResourceNames.customerManagedKeys.importedCentralLogsBucket.alias,
         description: this.acceleratorResourceNames.customerManagedKeys.importedCentralLogsBucket.description,
       });
-      key.addToResourcePolicy(this.createImportBucketKeyPolicyStatement());
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: `Allow Accelerator and Assets Role to use the encryption key`,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              ...this.getPrincipalOrgIdCondition(this.organizationId),
+            },
+            ArnLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this).partition}:iam::*:role/${this.props.prefixes.accelerator}-AssetsAccessRole`,
+              ],
+            },
+          },
+        }),
+      );
+
+      // Deny users outside of LZA the ability to disable and delete the CMK key
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                  this.props.prefixes.accelerator
+                }-*`,
+                `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
+
       new cdk.aws_ssm.StringParameter(this, 'AcceleratorImportedCentralLogsBucketKmsArnParameter', {
         parameterName: this.acceleratorResourceNames.parameters.importedCentralLogBucketCmkArn,
         stringValue: key.keyArn,
       });
       return key;
-    } else {
-      throw new Error(`Invalid bucket type ${bucketType}, cannot create key for imported bucket`);
     }
-  }
-
-  private createImportBucketKeyPolicyStatement(): cdk.aws_iam.PolicyStatement {
-    return new cdk.aws_iam.PolicyStatement({
-      sid: `Allow Accelerator and Assets Role to use the encryption key`,
-      principals: [new cdk.aws_iam.AnyPrincipal()],
-      actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'],
-      resources: ['*'],
-      conditions: {
-        StringEquals: {
-          ...this.getPrincipalOrgIdCondition(this.organizationId),
-        },
-        ArnLike: {
-          'aws:PrincipalARN': [
-            `arn:${cdk.Stack.of(this).partition}:iam::*:role/${this.props.prefixes.accelerator}-AssetsAccessRole`,
-          ],
-        },
-      },
-    });
+    throw new Error(`Invalid bucket type ${bucketType}, cannot create key for imported bucket`);
   }
 
   /**
@@ -2385,6 +2567,28 @@ export class LoggingStack extends AcceleratorStack {
       }),
     );
 
+    // Deny users outside of LZA the ability to disable and delete the CMK key
+    this.centralSnsKey.addToResourcePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        sid: 'DenyKeyDeletionExceptAccelerator',
+        effect: cdk.aws_iam.Effect.DENY,
+        principals: [new cdk.aws_iam.AnyPrincipal()],
+        actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+        resources: ['*'],
+        conditions: {
+          StringNotLike: {
+            'aws:PrincipalARN': [
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                this.props.prefixes.accelerator
+              }-*`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+            ],
+          },
+        },
+      }),
+    );
+
     new cdk.aws_ssm.StringParameter(this, 'AcceleratorCentralSnsKmsArnParameter', {
       parameterName: this.acceleratorResourceNames.parameters.snsTopicCmkArn,
       stringValue: this.centralSnsKey.keyArn,
@@ -2528,6 +2732,29 @@ export class LoggingStack extends AcceleratorStack {
         },
       }),
     );
+
+    // Deny users outside of LZA the ability to disable and delete the CMK key
+    snsKey.addToResourcePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        sid: 'DenyKeyDeletionExceptAccelerator',
+        effect: cdk.aws_iam.Effect.DENY,
+        principals: [new cdk.aws_iam.AnyPrincipal()],
+        actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+        resources: ['*'],
+        conditions: {
+          StringNotLike: {
+            'aws:PrincipalARN': [
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/AWSControlTowerExecution`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                this.props.prefixes.accelerator
+              }-*`,
+              `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+            ],
+          },
+        },
+      }),
+    );
+
     new cdk.aws_ssm.StringParameter(this, 'AcceleratorCentralSnsKmsArnParameter', {
       parameterName: this.acceleratorResourceNames.parameters.snsTopicCmkArn,
       stringValue: snsKey.keyArn,
@@ -2731,6 +2958,31 @@ export class LoggingStack extends AcceleratorStack {
             },
           }),
         );
+
+        // Deny users outside of LZA the ability to disable and delete the CMK key
+        assetsKmsKey.addToResourcePolicy(
+          new cdk.aws_iam.PolicyStatement({
+            sid: 'DenyKeyDeletionExceptAccelerator',
+            effect: cdk.aws_iam.Effect.DENY,
+            principals: [new cdk.aws_iam.AnyPrincipal()],
+            actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+            resources: ['*'],
+            conditions: {
+              StringNotLike: {
+                'aws:PrincipalARN': [
+                  `arn:${cdk.Stack.of(this).partition}:iam::${
+                    cdk.Stack.of(this).account
+                  }:role/AWSControlTowerExecution`,
+                  `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                    this.props.prefixes.accelerator
+                  }-*`,
+                  `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+                ],
+              },
+            },
+          }),
+        );
+
         new cdk.aws_ssm.StringParameter(this, 'SsmParamAssetsAccountBucketKMSArn', {
           parameterName: this.acceleratorResourceNames.parameters.assetsBucketCmkArn,
           stringValue: assetsKmsKey.keyArn,

@@ -74,6 +74,30 @@ export class KmsKeyResource {
         }),
       );
 
+      // Deny users outside of LZA the ability to disable and delete the CMK key
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this.stack).partition}:iam::${
+                  cdk.Stack.of(this.stack).account
+                }:role/AWSControlTowerExecution`,
+                `arn:${cdk.Stack.of(this.stack).partition}:iam::${cdk.Stack.of(this.stack).account}:role/${
+                  this.props.prefixes.accelerator
+                }-*`,
+                `arn:${cdk.Stack.of(this.stack).partition}:iam::${cdk.Stack.of(this.stack).account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
+
       this.stack.addSsmParameter({
         logicalId: 'AcceleratorCloudWatchKmsArnParameter',
         parameterName: this.stack.acceleratorResourceNames.parameters.cloudWatchLogCmkArn,
@@ -107,6 +131,28 @@ export class KmsKeyResource {
         enableKeyRotation: true,
         removalPolicy: cdk.RemovalPolicy.RETAIN,
       });
+      key.addToResourcePolicy(
+        new cdk.aws_iam.PolicyStatement({
+          sid: 'DenyKeyDeletionExceptAccelerator',
+          effect: cdk.aws_iam.Effect.DENY,
+          principals: [new cdk.aws_iam.AnyPrincipal()],
+          actions: ['kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+          resources: ['*'],
+          conditions: {
+            StringNotLike: {
+              'aws:PrincipalARN': [
+                `arn:${cdk.Stack.of(this.stack).partition}:iam::${
+                  cdk.Stack.of(this.stack).account
+                }:role/AWSControlTowerExecution`,
+                `arn:${cdk.Stack.of(this.stack).partition}:iam::${cdk.Stack.of(this.stack).account}:role/${
+                  this.props.prefixes.accelerator
+                }-*`,
+                `arn:${cdk.Stack.of(this.stack).partition}:iam::${cdk.Stack.of(this.stack).account}:role/cdk-accel-*`,
+              ],
+            },
+          },
+        }),
+      );
 
       this.stack.addSsmParameter({
         logicalId: 'AcceleratorLambdaKmsArnParameter',

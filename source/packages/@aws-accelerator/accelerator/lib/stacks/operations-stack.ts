@@ -799,6 +799,30 @@ export class OperationsStack extends AcceleratorStack {
             enableKeyRotation: true,
             removalPolicy: cdk.RemovalPolicy.RETAIN,
           });
+
+          // Deny users outside of LZA the ability to disable and delete the CMK key
+          backupKey.addToResourcePolicy(
+            new cdk.aws_iam.PolicyStatement({
+              sid: 'DenyKeyDeletionExceptAccelerator',
+              effect: cdk.aws_iam.Effect.DENY,
+              principals: [new cdk.aws_iam.AnyPrincipal()],
+              actions: ['kms:DisableKey', 'kms:ScheduleKeyDeletion', 'kms:DeleteImportedKeyMaterial'],
+              resources: ['*'],
+              conditions: {
+                StringNotLike: {
+                  'aws:PrincipalARN': [
+                    `arn:${cdk.Stack.of(this).partition}:iam::${
+                      cdk.Stack.of(this).account
+                    }:role/AWSControlTowerExecution`,
+                    `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/${
+                      this.props.prefixes.accelerator
+                    }-*`,
+                    `arn:${cdk.Stack.of(this).partition}:iam::${cdk.Stack.of(this).account}:role/cdk-accel-*`,
+                  ],
+                },
+              },
+            }),
+          );
         }
 
         const vaultPolicy = this.getBackupVaultAccessPolicy(vault);
